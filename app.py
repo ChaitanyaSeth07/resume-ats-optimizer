@@ -1,12 +1,13 @@
 """
 Resume ATS Optimizer - Main Streamlit App
-Current version: Full Feedback Loop (Generate → Score → Improve)
+Current version: Full Feedback Loop + Clean DOCX Generation
 """
 
 import streamlit as st
 from core.pdf_parser import extract_text_from_pdf, get_pdf_info
 from core.structure_extractor import extract_structure
 from core.feedback_loop import run_feedback_loop
+from core.docx_builder import create_ats_docx
 
 # Page configuration
 st.set_page_config(
@@ -19,7 +20,7 @@ st.set_page_config(
 st.title("📄 Resume ATS Optimizer")
 st.markdown("""
 Upload your resume (PDF) and paste a job description.  
-The tool will optimize your resume using a practical feedback loop for better ATS performance.
+The tool optimizes your resume using a feedback loop and generates a clean ATS-friendly DOCX.
 """)
 
 st.divider()
@@ -36,8 +37,8 @@ with st.sidebar:
     max_attempts = st.slider("Max Improvement Attempts", min_value=1, max_value=3, value=3)
 
     st.markdown("---")
-    st.markdown("**Status:** Feedback Loop Active")
-    st.caption("v0.3 - Generate → Score → Improve")
+    st.markdown("**Status:** DOCX Generation Ready")
+    st.caption("v0.4 - Feedback Loop + DOCX")
 
 # Inputs
 col1, col2 = st.columns(2)
@@ -56,7 +57,7 @@ with col2:
 
 st.divider()
 
-if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_container_width=True):
+if st.button("🚀 Start Optimization", type="primary", use_container_width=True):
 
     if uploaded_file is None:
         st.error("Please upload a PDF resume first.")
@@ -64,7 +65,7 @@ if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_c
         st.warning("Please paste a job description.")
     else:
         # Step 1: Extract text
-        with st.spinner("Step 1/3 — Extracting text from PDF..."):
+        with st.spinner("Step 1/4 — Extracting text from PDF..."):
             resume_text = extract_text_from_pdf(uploaded_file)
             pdf_info = get_pdf_info(uploaded_file)
 
@@ -74,12 +75,12 @@ if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_c
             st.success(f"Text extracted from {pdf_info['page_count']} page(s).")
 
             # Step 2: Structure
-            with st.spinner("Step 2/3 — Organizing into sections..."):
+            with st.spinner("Step 2/4 — Organizing into sections..."):
                 structured = extract_structure(resume_text)
             st.success("Structure extraction completed.")
 
             # Step 3: Feedback Loop
-            with st.spinner("Step 3/3 — Running AI Feedback Loop (this may take 20–60 seconds)..."):
+            with st.spinner("Step 3/4 — Running AI Feedback Loop..."):
                 final_resume, score_report, attempts = run_feedback_loop(
                     structured_resume=structured,
                     job_description=job_description,
@@ -91,6 +92,10 @@ if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_c
                 st.error("Optimization failed. Please check your API key.")
             else:
                 st.success(f"Feedback loop completed after {attempts} attempt(s)!")
+
+                # Step 4: Create DOCX
+                with st.spinner("Step 4/4 — Creating clean ATS-friendly DOCX..."):
+                    docx_file = create_ats_docx(final_resume)
 
                 # === RESULTS ===
                 st.subheader("Final Results")
@@ -105,22 +110,35 @@ if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_c
                     with st.expander("Still missing some keywords"):
                         st.write(", ".join(score_report["missing_keywords"]))
 
-                st.subheader("Final Optimized Resume")
-                st.text_area("Improved Resume", value=final_resume, height=450)
+                st.subheader("Final Optimized Resume (Text Preview)")
+                st.text_area("Improved Resume", value=final_resume, height=350)
 
-                st.download_button(
-                    label="Download Optimized Resume (TXT)",
-                    data=final_resume,
-                    file_name="optimized_resume.txt",
-                    mime="text/plain"
-                )
+                # Download buttons
+                st.subheader("Download")
 
-                st.info("Next major step: Generate clean ATS-friendly DOCX file")
+                col_a, col_b = st.columns(2)
+
+                with col_a:
+                    st.download_button(
+                        label="Download DOCX (Recommended)",
+                        data=docx_file,
+                        file_name="optimized_resume.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
+                with col_b:
+                    st.download_button(
+                        label="Download TXT",
+                        data=final_resume,
+                        file_name="optimized_resume.txt",
+                        mime="text/plain"
+                    )
+
+                st.success("You can now download a clean ATS-friendly Word document!")
 
                 # Save to session
                 st.session_state["final_resume"] = final_resume
                 st.session_state["score_report"] = score_report
-                st.session_state["output_format"] = output_format
 
 st.markdown("---")
-st.caption("Resume ATS Optimizer • v0.3 • Feedback Loop Active • Streamlit + Groq")
+st.caption("Resume ATS Optimizer • v0.4 • Feedback Loop + DOCX • Streamlit + Groq")
