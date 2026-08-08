@@ -1,13 +1,12 @@
 """
 Resume ATS Optimizer - Main Streamlit App
-Current version: PDF → Structure → AI Optimization → Scoring
+Current version: Full Feedback Loop (Generate → Score → Improve)
 """
 
 import streamlit as st
 from core.pdf_parser import extract_text_from_pdf, get_pdf_info
 from core.structure_extractor import extract_structure
-from core.llm_optimizer import optimize_resume
-from core.scoring_engine import calculate_overall_score
+from core.feedback_loop import run_feedback_loop
 
 # Page configuration
 st.set_page_config(
@@ -17,11 +16,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Title and description
 st.title("📄 Resume ATS Optimizer")
 st.markdown("""
 Upload your resume (PDF) and paste a job description.  
-The tool will optimize your resume for ATS systems and the specific role.
+The tool will optimize your resume using a practical feedback loop for better ATS performance.
 """)
 
 st.divider()
@@ -34,11 +32,14 @@ with st.sidebar:
         options=["DOCX", "PDF", "Both"],
         index=0
     )
-    st.markdown("---")
-    st.markdown("**Status:** Scoring Engine added")
-    st.caption("v0.2 - Optimization + Scoring")
+    target_score = st.slider("Target Score", min_value=60, max_value=90, value=75)
+    max_attempts = st.slider("Max Improvement Attempts", min_value=1, max_value=3, value=3)
 
-# Main inputs
+    st.markdown("---")
+    st.markdown("**Status:** Feedback Loop Active")
+    st.caption("v0.3 - Generate → Score → Improve")
+
+# Inputs
 col1, col2 = st.columns(2)
 
 with col1:
@@ -55,7 +56,7 @@ with col2:
 
 st.divider()
 
-if st.button("🚀 Start Optimization", type="primary", use_container_width=True):
+if st.button("🚀 Start Optimization with Feedback Loop", type="primary", use_container_width=True):
 
     if uploaded_file is None:
         st.error("Please upload a PDF resume first.")
@@ -63,7 +64,7 @@ if st.button("🚀 Start Optimization", type="primary", use_container_width=True
         st.warning("Please paste a job description.")
     else:
         # Step 1: Extract text
-        with st.spinner("Step 1/4 — Extracting text from PDF..."):
+        with st.spinner("Step 1/3 — Extracting text from PDF..."):
             resume_text = extract_text_from_pdf(uploaded_file)
             pdf_info = get_pdf_info(uploaded_file)
 
@@ -73,56 +74,53 @@ if st.button("🚀 Start Optimization", type="primary", use_container_width=True
             st.success(f"Text extracted from {pdf_info['page_count']} page(s).")
 
             # Step 2: Structure
-            with st.spinner("Step 2/4 — Organizing into sections..."):
+            with st.spinner("Step 2/3 — Organizing into sections..."):
                 structured = extract_structure(resume_text)
             st.success("Structure extraction completed.")
 
-            # Step 3: AI Optimization
-            with st.spinner("Step 3/4 — AI is optimizing your resume..."):
-                optimized_resume = optimize_resume(structured, job_description)
+            # Step 3: Feedback Loop
+            with st.spinner("Step 3/3 — Running AI Feedback Loop (this may take 20–60 seconds)..."):
+                final_resume, score_report, attempts = run_feedback_loop(
+                    structured_resume=structured,
+                    job_description=job_description,
+                    max_attempts=max_attempts,
+                    target_score=float(target_score)
+                )
 
-            if optimized_resume is None:
-                st.error("AI optimization failed. Check your API key in .env")
+            if final_resume is None:
+                st.error("Optimization failed. Please check your API key.")
             else:
-                st.success("AI optimization completed!")
-
-                # Step 4: Scoring
-                with st.spinner("Step 4/4 — Scoring the optimized resume..."):
-                    score_report = calculate_overall_score(optimized_resume, job_description)
+                st.success(f"Feedback loop completed after {attempts} attempt(s)!")
 
                 # === RESULTS ===
-                st.subheader("Results")
+                st.subheader("Final Results")
 
-                # Score cards
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Overall Score", f"{score_report['overall_score']}/100")
                 c2.metric("Rating", score_report['rating'])
                 c3.metric("Keyword Match", f"{score_report['keyword_score']}%")
-                c4.metric("Structure Score", f"{score_report['structural_score']}%")
+                c4.metric("Attempts Used", attempts)
 
-                # Missing keywords
-                if score_report["missing_keywords"]:
-                    with st.expander("Keywords missing from resume (consider adding)"):
+                if score_report.get("missing_keywords"):
+                    with st.expander("Still missing some keywords"):
                         st.write(", ".join(score_report["missing_keywords"]))
 
-                # Optimized resume
-                st.subheader("Optimized Resume")
-                st.text_area("Improved Resume", value=optimized_resume, height=450)
+                st.subheader("Final Optimized Resume")
+                st.text_area("Improved Resume", value=final_resume, height=450)
 
                 st.download_button(
                     label="Download Optimized Resume (TXT)",
-                    data=optimized_resume,
+                    data=final_resume,
                     file_name="optimized_resume.txt",
                     mime="text/plain"
                 )
 
-                st.info("Next: Feedback Loop + DOCX generation")
+                st.info("Next major step: Generate clean ATS-friendly DOCX file")
 
                 # Save to session
-                st.session_state["optimized_resume"] = optimized_resume
+                st.session_state["final_resume"] = final_resume
                 st.session_state["score_report"] = score_report
-                st.session_state["job_description"] = job_description
                 st.session_state["output_format"] = output_format
 
 st.markdown("---")
-st.caption("Resume ATS Optimizer • v0.2 • Streamlit + Groq")
+st.caption("Resume ATS Optimizer • v0.3 • Feedback Loop Active • Streamlit + Groq")
