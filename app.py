@@ -2,7 +2,10 @@
 Resume ATS Optimizer
 v0.8 — Clean Professional UI
 """
-
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from core.evaluation_logger import log_evaluation, get_all_logs
 import streamlit as st
 from core.pdf_parser import extract_text_from_pdf, get_pdf_info
 from core.structure_extractor import extract_structure
@@ -217,6 +220,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+# Initialize variables to avoid NameError
+uploaded_file = None
+job_description = ""
 
 # -------------------- Sidebar --------------------
 with st.sidebar:
@@ -246,8 +252,109 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Version**")
-    st.caption("v0.8")
+    st.caption("v1.1")
     st.caption("Clean Professional UI")
+
+    st.markdown("---")
+    st.markdown("### Creator Access")
+    creator_password = st.text_input("Enter creator password", type="password")
+    show_dashboard = creator_password == "ats2026"
+    # -------------------- Creator Dashboard --------------------
+if show_dashboard:
+    st.markdown("## Creator Evaluation Dashboard")
+    st.caption("Metrics only. No resume content is stored or shown.")
+
+    logs = get_all_logs()
+
+    if not logs:
+        st.warning("No evaluation data found yet. Run a few optimizations first.")
+    else:
+        df = pd.DataFrame(logs)
+
+        # Convert numeric columns safely
+        for col in ["overall_score", "keyword_score", "structural_score", "attempts_used", "target_score"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # Summary metrics
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Evaluations", len(df))
+        c2.metric("Avg Overall Score", f"{df['overall_score'].mean():.1f}")
+        c3.metric("Avg Keyword Match", f"{df['keyword_score'].mean():.1f}%")
+        c4.metric("Avg Attempts", f"{df['attempts_used'].mean():.1f}")
+
+        st.divider()
+
+        # Charts
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            st.markdown("**Overall Score Distribution**")
+            fig1, ax1 = plt.subplots(figsize=(6, 4))
+            sns.histplot(df["overall_score"].dropna(), bins=10, kde=True, ax=ax1, color="#2563EB")
+            ax1.set_xlabel("Overall Score")
+            ax1.set_ylabel("Count")
+            st.pyplot(fig1)
+
+        with col_b:
+            st.markdown("**Keyword vs Structure Score**")
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            sns.scatterplot(
+                data=df,
+                x="keyword_score",
+                y="structural_score",
+                hue="rating",
+                ax=ax2,
+                s=80
+            )
+            ax2.set_xlabel("Keyword Match %")
+            ax2.set_ylabel("Structure Score")
+            st.pyplot(fig2)
+
+        st.markdown("**Attempts Used per Run**")
+        fig3, ax3 = plt.subplots(figsize=(8, 3.5))
+        sns.countplot(data=df, x="attempts_used", ax=ax3, color="#2563EB")
+        ax3.set_xlabel("Number of Attempts")
+        ax3.set_ylabel("Count")
+        st.pyplot(fig3)
+
+        st.divider()
+
+        # Raw table
+        st.markdown("**Raw Metrics Log**")
+        st.dataframe(df, use_container_width=True)
+
+        st.divider()
+        st.markdown("### Download Analysis")
+
+        # Presentable full report
+        report_buffer = build_analysis_report(logs)
+
+        d1, d2 = st.columns(2)
+
+        with d1:
+            st.download_button(
+                label="Download Full Analysis Report (DOCX)",
+                data=report_buffer,
+                file_name="resume_ats_analysis_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+
+        with d2:
+            csv_data = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Download Raw Metrics (CSV)",
+                data=csv_data,
+                file_name="evaluation_metrics.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+    st.divider()
+    st.info("Creator mode is active. Regular users do not see this dashboard.")
+    st.stop()
+
 
 # -------------------- Hero --------------------
 st.markdown('<div class="hero-title">Resume ATS Optimizer</div>', unsafe_allow_html=True)
@@ -268,7 +375,6 @@ st.markdown('<div class="section-subtitle">Provide your resume and the job descr
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">YOUR RESUME</div>', unsafe_allow_html=True)
     st.markdown('<div class="card-desc">Upload your current resume as a PDF.</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
@@ -280,10 +386,8 @@ with col1:
         st.success(f"✓ {uploaded_file.name} uploaded")
     else:
         st.caption("Supported format: PDF")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">JOB DESCRIPTION</div>', unsafe_allow_html=True)
     st.markdown('<div class="card-desc">Paste the job description for the position you\'re targeting.</div>', unsafe_allow_html=True)
     job_description = st.text_area(
@@ -293,15 +397,14 @@ with col2:
         label_visibility="collapsed"
     )
     st.caption("Tip: Include the complete job description for better keyword matching.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 st.write("")
 
 # -------------------- CTA --------------------
 optimize_clicked = st.button("🚀 Optimize My Resume", type="primary", use_container_width=True)
 
-# -------------------- Empty State --------------------
-if not optimize_clicked and uploaded_file is None and not job_description:
+# -------------------- Empty State (only when nothing is entered yet) --------------------
+if (not optimize_clicked) and (uploaded_file is None) and (not job_description.strip()):
     st.markdown("""
     <div class="empty-state">
         <div class="empty-title">Ready to optimize your resume?</div>
