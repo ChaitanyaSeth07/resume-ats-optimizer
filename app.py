@@ -14,7 +14,7 @@ from core.docx_builder import create_ats_docx
 from core.converter import convert_docx_to_pdf
 from core.evaluation_logger import log_evaluation
 from core.security import validate_uploaded_file, basic_output_validation, clear_sensitive_session_keys
-
+from core.report_builder import build_analysis_report
 # -------------------- Page Config --------------------
 st.set_page_config(
     page_title="Resume ATS Optimizer",
@@ -627,8 +627,8 @@ if optimize_clicked:
                 use_container_width=True
             )
         else:
-            st.button("PDF unavailable", disabled=True, use_container_width=True)
-            st.caption("PDF conversion is unavailable on this system. DOCX is still available.")
+            st.button("PDF (requires Word/LibreOffice)", disabled=True, use_container_width=True)
+            st.caption("Install Microsoft Word or LibreOffice to enable PDF export. DOCX is still available.")
 
     with d3:
         st.markdown("**Plain Text**")
@@ -649,6 +649,6 @@ st.markdown("""
 <div class="footer">
     Resume ATS Optimizer<br>
     AI-powered resume optimization using LLM + ATS feedback loop<br>
-    v0.8
+    v1.3
 </div>
 """, unsafe_allow_html=True)
