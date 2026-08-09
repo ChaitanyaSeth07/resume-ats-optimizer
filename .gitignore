@@ -1,37 +1,32 @@
-# Environment & secrets
+# Secrets
 .env
-.venv/
+.streamlit/secrets.toml
+
+# Virtual environment
 venv/
+.venv/
 env/
+
+# Evaluation data (optional – remove this line if you want to track metrics in git)
+evaluation_logs.csv
+
+# Temporary & output files
+*.docx
+*.pdf
+!templates/*.docx
+outputs/
+tmp/
+temp/
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 *.egg-info/
 dist/
 build/
 
-# Streamlit
-.streamlit/secrets.toml
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
+# OS / IDE
 .DS_Store
 Thumbs.db
-
-# Output files
-outputs/
-*.docx
-*.pdf
-!templates/*.docx
-
-# Logs
-*.log
+.vscode/
+.idea/

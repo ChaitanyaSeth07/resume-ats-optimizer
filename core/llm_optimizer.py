@@ -1,6 +1,6 @@
 """
-LLM Optimizer Module
-Uses Groq (free tier) via OpenAI-compatible API to improve the resume.
+LLM Optimizer Module (Security-hardened)
+Uses Groq via OpenAI-compatible API.
 """
 
 import os
@@ -8,24 +8,38 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from typing import Dict, Optional
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Initialize the client for Groq
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url=os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
-)
+def get_client():
+    """Create OpenAI-compatible client with safe key loading."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    
+    # Prefer Streamlit secrets when available
+    try:
+        import streamlit as st
+        if "OPENAI_API_KEY" in st.secrets:
+            api_key = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        pass
+
+    if not api_key:
+        raise ValueError("API key not found. Please set OPENAI_API_KEY.")
+
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
+    try:
+        import streamlit as st
+        if "OPENAI_BASE_URL" in st.secrets:
+            base_url = st.secrets["OPENAI_BASE_URL"]
+    except Exception:
+        pass
+
+    return OpenAI(api_key=api_key, base_url=base_url)
 
 
 def build_optimization_prompt(structured_resume: Dict, job_description: str) -> str:
-    """
-    Create a strong prompt for the LLM to optimize the resume.
-    """
     contact = structured_resume.get("contact", {})
     sections = structured_resume.get("sections", {})
 
-    # Build a readable version of the current resume
     resume_content = ""
     if contact.get("name"):
         resume_content += f"Name: {contact.get('name')}\n"
@@ -41,15 +55,14 @@ def build_optimization_prompt(structured_resume: Dict, job_description: str) -> 
         resume_content += f"=== {section_name.upper()} ===\n{content}\n\n"
 
     prompt = f"""
-You are an expert resume writer and ATS (Applicant Tracking System) specialist.
+You are an expert resume writer and ATS specialist.
 
-Your task is to improve the following resume so that it:
-1. Is highly ATS-friendly (clean structure, standard headings, strong keywords)
-2. Is tailored to the job description provided
-3. Uses strong action verbs and quantifiable achievements where possible
-4. Keeps all original facts truthful (do NOT invent experience or numbers)
-5. Improves clarity, impact, and professional language
-6. Maintains a modern, clean, professional tone
+Improve the resume so that it is:
+1. Highly ATS-friendly
+2. Tailored to the job description
+3. Uses strong action verbs
+4. Keeps all original facts truthful (DO NOT invent experience, jobs, degrees, or metrics)
+5. Clear and professional
 
 JOB DESCRIPTION:
 \"\"\"
@@ -61,7 +74,7 @@ CURRENT RESUME:
 {resume_content}
 \"\"\"
 
-Please return the improved resume in the following structured format exactly:
+Return the improved resume in this exact structure:
 
 CONTACT:
 Name: ...
@@ -71,49 +84,37 @@ LinkedIn: ...
 Location: ...
 
 SUMMARY:
-(improved professional summary)
+...
 
 EXPERIENCE:
-(improved work experience with strong bullets)
+...
 
 EDUCATION:
-(education section)
+...
 
 SKILLS:
-(optimized skills list, preferably matching keywords from the job description)
+...
 
 PROJECTS:
-(if applicable)
+...
 
 CERTIFICATIONS:
-(if applicable)
+...
 
 OTHER:
-(any other relevant sections)
+...
 
-Important rules:
-- Do not add fake experience or fake metrics.
-- Keep the same jobs and education.
-- Make bullet points start with strong action verbs.
-- Prioritize keywords from the job description naturally.
-- Keep it concise and professional.
+Critical rules:
+- Never invent new jobs, companies, degrees, or numbers.
+- Keep the same real experiences.
+- Only improve language, structure, and keyword alignment.
 """
     return prompt.strip()
 
 
 def optimize_resume(structured_resume: Dict, job_description: str, model: str = "llama-3.3-70b-versatile") -> Optional[str]:
-    """
-    Call the LLM (Groq) to optimize the resume.
-    
-    Args:
-        structured_resume: Output from structure_extractor
-        job_description: The target job description
-        model: Model name on Groq (llama-3.3-70b-versatile is recommended)
-        
-    Returns:
-        Improved resume as plain text, or None if failed.
-    """
     try:
+        client = get_client()
         prompt = build_optimization_prompt(structured_resume, job_description)
 
         response = client.chat.completions.create(
@@ -121,19 +122,19 @@ def optimize_resume(structured_resume: Dict, job_description: str, model: str = 
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert resume writer specializing in ATS optimization."
+                    "content": "You are an expert resume writer. Never invent experience or metrics. Only improve wording and structure."
                 },
                 {
                     "role": "user",
                     "content": prompt
                 }
             ],
-            temperature=0.4,
+            temperature=0.3,
             max_tokens=2500
         )
 
-        improved_resume = response.choices[0].message.content
-        return improved_resume.strip() if improved_resume else None
+        result = response.choices[0].message.content
+        return result.strip() if result else None
 
     except Exception as e:
         print(f"Error calling LLM: {e}")
