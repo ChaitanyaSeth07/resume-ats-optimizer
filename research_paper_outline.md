@@ -1,122 +1,154 @@
-# Research Paper Outline  
-**Title (Working):**  
-An AI-Powered Feedback-Loop Approach for ATS-Optimized Resume Generation
+# Research Paper Outline
+
+**Working Title:**  
+An AI-Powered Feedback-Loop System for ATS-Optimized Resume Generation with Privacy-Aware Design
 
 ---
 
 ## 1. Abstract
-- Brief summary of the problem (resumes failing ATS)
-- Proposed solution (automated system with LLM + feedback loop)
-- Key results (to be filled later with real metrics)
-- Main contribution
+- Problem: Many resumes fail Applicant Tracking Systems (ATS) due to poor structure, weak keyword alignment, and non-parseable formatting.
+- Solution: A practical automated system that combines PDF parsing, structure extraction, LLM-based optimization, a scoring engine, and an iterative feedback loop.
+- Additional focus: Privacy-aware design that avoids storing resume content and implements multiple security controls.
+- Contribution: An end-to-end open system with measurable improvement metrics and a creator evaluation dashboard.
+- Results: (To be filled after data collection)
 
 ---
 
 ## 2. Introduction
-- Importance of ATS in modern recruitment
-- Common problems with existing resumes (poor parsing, keyword mismatch, weak structure)
-- Limitations of current tools (Jobscan, Resume Worded, manual ChatGPT use)
-- Goal of this research: Build and evaluate a practical, automated, feedback-driven resume optimization system
+- Growing reliance on ATS in recruitment
+- Common failure points of resumes in ATS
+- Limitations of existing tools (manual ChatGPT usage, commercial scanners, lack of iterative refinement)
+- Research goal: Design, implement, and evaluate a feedback-driven resume optimization system that is both effective and privacy-conscious
 
 ---
 
 ## 3. Related Work
-- Traditional ATS systems and how they parse resumes
-- Existing resume optimization tools
-- Use of Large Language Models for resume writing
-- Feedback-loop / iterative refinement approaches in NLP
-- Gap that this work addresses
+- How modern ATS systems parse and rank resumes
+- Commercial tools (Jobscan, Resume Worded, etc.)
+- LLM applications in career documents
+- Iterative refinement / feedback-loop methods in NLP
+- Privacy concerns when sending personal documents to external AI APIs
+- Research gap addressed by this work
 
 ---
 
 ## 4. System Architecture
-### 4.1 Overall Pipeline
-1. PDF Text Extraction
-2. Structure Extraction
-3. LLM-based Optimization
-4. Scoring Engine
-5. Feedback Loop (iterative improvement)
-6. Clean DOCX / PDF Generation
+
+### 4.1 Pipeline Overview
+1. Secure PDF Upload & Validation
+2. Text Extraction
+3. Structure Extraction (sections + contact)
+4. LLM Optimization (truthfulness-constrained)
+5. Scoring Engine (keyword + structural)
+6. Feedback Loop (generate → score → improve)
+7. Clean ATS-friendly DOCX / PDF Generation
+8. Metrics Logging (results only, no resume content)
 
 ### 4.2 Design Principles
-- Based on real ATS behavior (clean structure, standard headings, keyword alignment)
-- Truthfulness constraint (no hallucinated experience)
-- Practical feedback loop instead of real commercial ATS APIs
+- Based on real ATS behavior (standard headings, clean linear structure, keyword relevance)
+- Truthfulness constraint (no invented experience or metrics)
+- Privacy-by-design (no permanent storage of resume or job description content)
+- Practical feedback loop instead of closed commercial ATS APIs
 
-### 4.3 Tech Stack
-- Streamlit
-- pdfplumber
-- python-docx
-- Groq (Llama 3.3 70B)
-- Custom scoring engine
+### 4.3 Technology Stack
+- Frontend/Backend: Streamlit
+- PDF Parsing: pdfplumber
+- Document Generation: python-docx
+- LLM: Groq (Llama 3.3 70B) via OpenAI-compatible API
+- Scoring & Analysis: Custom engine + pandas + seaborn
+- Security utilities: Custom validation and cleanup modules
 
 ---
 
 ## 5. Methodology
-### 5.1 Resume Parsing & Structuring
-### 5.2 Prompt Design for Optimization
+
+### 5.1 Resume Parsing and Structuring
+### 5.2 Prompt Engineering for Optimization
+- Strong instructions against hallucination
+- Structured output format
+- Job-description targeting
+
 ### 5.3 Scoring Metrics
 - Keyword Match Score
 - Structural Compliance Score
-- Overall Weighted Score
-### 5.4 Feedback Loop Mechanism
+- Weighted Overall Score
+- Rating categories
+
+### 5.4 Feedback Loop
 - Threshold-based regeneration
-- Maximum attempts
-- Feedback injected into the next prompt
+- Maximum attempt limit
+- Injection of specific weaknesses into subsequent prompts
+
+### 5.5 Privacy and Security Measures
+- API key management via environment variables and Streamlit secrets
+- File type and size validation
+- Temporary file cleanup
+- No storage of full resume or job description text
+- Basic LLM output validation
+- Session state cleanup of sensitive data
+- Creator-only evaluation dashboard (password protected)
 
 ---
 
 ## 6. Experimental Setup
-- Dataset: Number of resumes + job descriptions tested
-- Evaluation metrics:
-  - Before vs After Overall Score
-  - Keyword Match improvement
-  - Structural Score improvement
-  - Number of feedback iterations needed
-- Tools used for analysis: Python, pandas, Seaborn, Matplotlib, Tableau
+- Number of resume–job description pairs tested
+- Hardware / software environment
+- Evaluation metrics collected automatically:
+  - Overall Score
+  - Keyword Score
+  - Structural Score
+  - Attempts used
+  - Target reached (Yes/No)
+- Analysis tools: pandas, seaborn, matplotlib, Tableau (optional)
 
 ---
 
 ## 7. Results
-(To be filled with real data later)
+(To be completed after systematic evaluation)
 
-- Score improvement statistics
-- Distribution of improvements
-- Example qualitative comparisons
-- Visualizations (Seaborn + Tableau)
+- Descriptive statistics of score improvements
+- Distribution of overall scores
+- Relationship between keyword match and structural score
+- Number of feedback iterations required
+- Qualitative examples (original vs optimized)
+- Visualizations
 
 ---
 
 ## 8. Discussion
-- What worked well
-- Limitations of the current system
-- Comparison with purely manual or single-pass LLM optimization
-- Practical usefulness
+- Effectiveness of the feedback loop compared to single-pass optimization
+- Strengths of the privacy-aware design
+- Remaining limitations (dependence on external LLM, PDF conversion constraints, evaluation scale)
+- Practical usefulness for job seekers
 
 ---
 
-## 9. Limitations & Future Work
-- Dependence on external LLM quality
-- PDF conversion limitations on some systems
-- Need for larger-scale evaluation
-- Possible integration with real ATS simulators
-- Fine-tuning possibilities
+## 9. Limitations and Future Work
+- External LLM dependency and potential hallucination residual risk
+- Limited dataset size in current evaluation
+- PDF conversion reliability across platforms
+- Possible future integration with stronger ATS simulators
+- Potential for local / on-device models for higher privacy
+- Larger-scale user study
 
 ---
 
 ## 10. Conclusion
-- Summary of contributions
-- Practical impact
-- Future direction
+- Summary of the system and its contributions
+- Demonstration that a practical feedback-loop approach can improve ATS-oriented resume quality
+- Importance of combining performance with privacy-aware engineering
+- Directions for future research
 
 ---
 
 ## References
-(To be added later)
+(To be added)
 
 ---
 
 ## Appendix
-- Example original vs optimized resumes
 - Full prompt templates
-- Scoring algorithm details 
+- Scoring algorithm details
+- Security control summary
+- Sample (anonymized) metric logs
+- System architecture diagram
