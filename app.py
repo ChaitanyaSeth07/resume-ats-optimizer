@@ -252,13 +252,53 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Version**")
-    st.caption("v1.1")
+    st.caption("v1.3")
     st.caption("Clean Professional UI")
 
     st.markdown("---")
     st.markdown("### Creator Access")
     creator_password = st.text_input("Enter creator password", type="password")
     show_dashboard = creator_password == "ats2026"
+    st.markdown("---")
+st.markdown("### Resume Design")
+
+design_theme = st.selectbox(
+    "Color Theme",
+    ["Blue", "Charcoal", "Teal", "Green", "Burgundy"],
+    index=0
+)
+
+design_font = st.selectbox(
+    "Typography",
+    ["Calibri", "Arial", "Georgia", "Garamond"],
+    index=0
+)
+
+design_header = st.selectbox(
+    "Header Style",
+    ["Centered", "Left-aligned", "Minimal"],
+    index=0
+)
+
+design_section = st.selectbox(
+    "Section Style",
+    ["Underline", "Caps + line", "Simple bold"],
+    index=0
+)
+
+design_spacing = st.selectbox(
+    "Spacing",
+    ["Compact", "Normal", "Comfortable"],
+    index=1
+)
+
+design_accent = st.selectbox(
+    "Accent Strength",
+    ["Low", "Medium"],
+    index=1
+)
+
+st.caption("Design stays ATS-safe: no icons, tables, or multi-column layouts.")
     # -------------------- Creator Dashboard --------------------
 if show_dashboard:
     st.markdown("## Creator Evaluation Dashboard")
@@ -478,8 +518,16 @@ if optimize_clicked:
 
         st.write(f"AI improvement attempt {attempts} of {max_attempts}")
         st.write("○ Generating final documents")
+        design_options = {
+    "theme": design_theme,
+    "font": design_font,
+    "header_style": design_header,
+    "section_style": design_section,
+    "spacing": design_spacing,
+    "accent_strength": design_accent,
+}
 
-        docx_buffer = create_ats_docx(final_resume)
+        docx_buffer = create_ats_docx(final_resume, design=design_options)
 
         pdf_buffer = None
         if output_format in ["PDF", "Both"]:

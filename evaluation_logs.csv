@@ -8,3 +8,5 @@ timestamp,overall_score,keyword_score,structural_score,rating,attempts_used,targ
 2026-08-09 22:53:53,100.0,100.0,100.0,Excellent,2,75.0,True,1688,35
 2026-08-09 23:15:57,100.0,100.0,100.0,Excellent,2,75.0,True,1688,36
 2026-08-09 23:27:01,100.0,100.0,100.0,Excellent,2,75.0,True,1688,33
+2026-08-10 12:10:11,78.4,66.7,100.0,Good,1,75.0,True,1688,28
+2026-08-10 20:28:07,83.8,75.0,100.0,Excellent,1,75.0,True,1688,37

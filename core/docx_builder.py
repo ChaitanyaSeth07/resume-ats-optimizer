@@ -1,53 +1,74 @@
 """
-DOCX Builder Module (Improved)
-Creates a clean, modern, professional, and highly ATS-friendly Word document.
+DOCX Builder with user-selectable design options (ATS-safe)
 """
 
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor, Twips
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-import re
 from io import BytesIO
+import re
+from typing import Dict
 
 
-def set_run_font(run, name="Calibri", size=11, bold=False, color=None):
-    run.font.name = name
-    run._element.rPr.rFonts.set(qn("w:eastAsia"), name)
+THEMES = {
+    "Blue": (37, 99, 235),
+    "Charcoal": (31, 41, 55),
+    "Teal": (13, 148, 136),
+    "Green": (22, 163, 74),
+    "Burgundy": (153, 27, 27),
+}
+
+FONTS = {
+    "Calibri": "Calibri",
+    "Arial": "Arial",
+    "Georgia": "Georgia",
+    "Garamond": "Garamond",
+}
+
+SPACING = {
+    "Compact": {"before": 6, "after": 2, "body_after": 2, "line": 1.08},
+    "Normal": {"before": 10, "after": 4, "body_after": 3, "line": 1.15},
+    "Comfortable": {"before": 14, "after": 6, "body_after": 4, "line": 1.2},
+}
+
+
+def _set_run(run, font="Calibri", size=11, bold=False, color=None):
+    run.font.name = font
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), font)
     run.font.size = Pt(size)
     run.bold = bold
     if color:
         run.font.color.rgb = RGBColor(*color)
 
 
-def set_paragraph_format(paragraph, before=0, after=6, line_spacing=1.15, alignment=None):
+def _set_paragraph(paragraph, before=0, after=6, line=1.15, align=None):
     pf = paragraph.paragraph_format
     pf.space_before = Pt(before)
     pf.space_after = Pt(after)
-    pf.line_spacing = line_spacing
-    if alignment:
-        paragraph.alignment = alignment
+    pf.line_spacing = line
+    if align is not None:
+        paragraph.alignment = align
 
 
-def add_horizontal_line(doc):
-    """Subtle horizontal line under the header."""
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(2)
-    p.paragraph_format.space_after = Pt(10)
-    pPr = p._p.get_or_add_pPr()
+def _add_bottom_border(paragraph, color_hex="2563EB", size="8"):
+    pPr = paragraph._p.get_or_add_pPr()
     pBdr = OxmlElement("w:pBdr")
     bottom = OxmlElement("w:bottom")
     bottom.set(qn("w:val"), "single")
-    bottom.set(qn("w:sz"), "8")
+    bottom.set(qn("w:sz"), size)
     bottom.set(qn("w:space"), "1")
-    bottom.set(qn("w:color"), "222222")
+    bottom.set(qn("w:color"), color_hex)
     pBdr.append(bottom)
     pPr.append(pBdr)
 
 
+def _rgb_to_hex(rgb):
+    return "{:02X}{:02X}{:02X}".format(*rgb)
+
+
 def parse_optimized_resume(text: str) -> dict:
-    """Parse the structured text coming from the LLM."""
     sections = {
         "contact": "",
         "summary": "",
@@ -56,108 +77,61 @@ def parse_optimized_resume(text: str) -> dict:
         "skills": "",
         "projects": "",
         "certifications": "",
-        "other": ""
+        "other": "",
     }
-
     current = "other"
     for line in text.split("\n"):
         upper = line.strip().upper()
         if upper.startswith("CONTACT"):
-            current = "contact"
-            continue
-        elif upper.startswith("SUMMARY"):
-            current = "summary"
-            continue
-        elif upper.startswith("EXPERIENCE"):
-            current = "experience"
-            continue
-        elif upper.startswith("EDUCATION"):
-            current = "education"
-            continue
-        elif upper.startswith("SKILLS"):
-            current = "skills"
-            continue
-        elif upper.startswith("PROJECTS"):
-            current = "projects"
-            continue
-        elif upper.startswith("CERTIFICATIONS"):
-            current = "certifications"
-            continue
-        elif upper.startswith("OTHER"):
-            current = "other"
-            continue
-
+            current = "contact"; continue
+        if upper.startswith("SUMMARY"):
+            current = "summary"; continue
+        if upper.startswith("EXPERIENCE"):
+            current = "experience"; continue
+        if upper.startswith("EDUCATION"):
+            current = "education"; continue
+        if upper.startswith("SKILLS"):
+            current = "skills"; continue
+        if upper.startswith("PROJECTS"):
+            current = "projects"; continue
+        if upper.startswith("CERTIFICATIONS"):
+            current = "certifications"; continue
+        if upper.startswith("OTHER"):
+            current = "other"; continue
         if line.strip():
             sections[current] += line + "\n"
-
     return sections
 
 
-def add_section_heading(doc, title: str):
-    """Consistent section headings that ATS can easily detect."""
-    p = doc.add_paragraph()
-    run = p.add_run(title.upper())
-    set_run_font(run, size=12, bold=True, color=(30, 30, 30))
-    set_paragraph_format(p, before=12, after=4)
-    
-    # Small underline effect via bottom border
-    pPr = p._p.get_or_add_pPr()
-    pBdr = OxmlElement("w:pBdr")
-    bottom = OxmlElement("w:bottom")
-    bottom.set(qn("w:val"), "single")
-    bottom.set(qn("w:sz"), "6")
-    bottom.set(qn("w:space"), "1")
-    bottom.set(qn("w:color"), "555555")
-    pBdr.append(bottom)
-    pPr.append(pBdr)
+def create_ats_docx(optimized_text: str, design: Dict = None) -> BytesIO:
+    design = design or {}
+    theme_name = design.get("theme", "Blue")
+    font_name = FONTS.get(design.get("font", "Calibri"), "Calibri")
+    header_style = design.get("header_style", "Centered")
+    section_style = design.get("section_style", "Underline")
+    spacing_name = design.get("spacing", "Normal")
+    accent_strength = design.get("accent_strength", "Medium")
 
+    accent = THEMES.get(theme_name, THEMES["Blue"])
+    accent_hex = _rgb_to_hex(accent)
+    space = SPACING.get(spacing_name, SPACING["Normal"])
+    border_size = "12" if accent_strength == "Medium" else "6"
 
-def add_body_content(doc, content: str):
-    """Add body text with proper bullet handling and spacing."""
-    if not content.strip():
-        return
-
-    for raw_line in content.strip().split("\n"):
-        line = raw_line.strip()
-        if not line:
-            continue
-
-        p = doc.add_paragraph()
-
-        # Bullet detection
-        if line.startswith(("-", "•", "*", "–", "—")):
-            clean = re.sub(r"^[-•*–—]\s*", "", line)
-            run = p.add_run("• " + clean)
-        else:
-            run = p.add_run(line)
-
-        set_run_font(run, size=10.5)
-        set_paragraph_format(p, before=1, after=3, line_spacing=1.12)
-
-
-def create_ats_docx(optimized_text: str) -> BytesIO:
-    """
-    Create a polished, modern, ATS-safe DOCX.
-    """
     doc = Document()
-
-    # Page setup - clean margins
     for section in doc.sections:
         section.top_margin = Inches(0.55)
         section.bottom_margin = Inches(0.55)
         section.left_margin = Inches(0.7)
         section.right_margin = Inches(0.7)
 
-    # Base style
     style = doc.styles["Normal"]
-    style.font.name = "Calibri"
+    style.font.name = font_name
     style.font.size = Pt(10.5)
 
     parsed = parse_optimized_resume(optimized_text)
 
-    # ========== HEADER / CONTACT ==========
+    # ---------- Header / Contact ----------
     contact_lines = [l.strip() for l in parsed["contact"].strip().split("\n") if l.strip()]
-
     name = ""
     contact_parts = []
 
@@ -165,46 +139,64 @@ def create_ats_docx(optimized_text: str) -> BytesIO:
         cleaned = re.sub(r"^(Name|Email|Phone|LinkedIn|Location):\s*", "", line, flags=re.IGNORECASE).strip()
         if i == 0 or line.lower().startswith("name"):
             name = cleaned
-        else:
-            if cleaned:
-                contact_parts.append(cleaned)
+        elif cleaned:
+            contact_parts.append(cleaned)
 
-    # Name
+    align = WD_ALIGN_PARAGRAPH.CENTER if header_style == "Centered" else WD_ALIGN_PARAGRAPH.LEFT
+
     if name:
-        name_p = doc.add_paragraph()
-        name_run = name_p.add_run(name)
-        set_run_font(name_run, size=20, bold=True, color=(20, 20, 20))
-        set_paragraph_format(name_p, before=0, after=2, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+        p = doc.add_paragraph()
+        run = p.add_run(name)
+        _set_run(run, font=font_name, size=18 if header_style != "Minimal" else 16, bold=True, color=accent if header_style != "Minimal" else (15, 23, 42))
+        _set_paragraph(p, before=0, after=2, align=align)
 
-    # Contact line
     if contact_parts:
-        info_p = doc.add_paragraph()
-        info_run = info_p.add_run("  |  ".join(contact_parts))
-        set_run_font(info_run, size=9.5, color=(60, 60, 60))
-        set_paragraph_format(info_p, before=0, after=4, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+        p = doc.add_paragraph()
+        run = p.add_run("  |  ".join(contact_parts))
+        _set_run(run, font=font_name, size=9.5, color=(51, 65, 85))
+        _set_paragraph(p, before=0, after=6, align=align)
 
-    add_horizontal_line(doc)
+    # Header line
+    line_p = doc.add_paragraph()
+    _set_paragraph(line_p, before=0, after=8)
+    _add_bottom_border(line_p, color_hex=accent_hex, size=border_size)
 
-    # ========== SECTIONS ==========
-    section_order = [
-        ("Professional Summary", parsed["summary"]),
-        ("Experience", parsed["experience"]),
-        ("Education", parsed["education"]),
-        ("Skills", parsed["skills"]),
-        ("Projects", parsed["projects"]),
-        ("Certifications", parsed["certifications"]),
-    ]
+    def add_section(title: str, content: str):
+        if not content.strip():
+            return
 
-    for title, content in section_order:
-        if content.strip():
-            add_section_heading(doc, title)
-            add_body_content(doc, content)
+        h = doc.add_paragraph()
+        run = h.add_run(title.upper())
+        _set_run(run, font=font_name, size=11.5, bold=True, color=accent if section_style != "Simple bold" else (15, 23, 42))
+        _set_paragraph(h, before=space["before"], after=space["after"])
 
+        if section_style == "Underline":
+            _add_bottom_border(h, color_hex=accent_hex, size="6")
+        elif section_style == "Caps + line":
+            _add_bottom_border(h, color_hex="94A3B8", size="4")
+
+        for raw in content.strip().split("\n"):
+            line = raw.strip()
+            if not line:
+                continue
+            p = doc.add_paragraph()
+            if line.startswith(("-", "•", "*", "–", "—")):
+                clean = re.sub(r"^[-•*–—]\s*", "", line)
+                run = p.add_run("• " + clean)
+            else:
+                run = p.add_run(line)
+            _set_run(run, font=font_name, size=10.5, color=(30, 41, 59))
+            _set_paragraph(p, before=0, after=space["body_after"], line=space["line"])
+
+    add_section("Professional Summary", parsed["summary"])
+    add_section("Experience", parsed["experience"])
+    add_section("Education", parsed["education"])
+    add_section("Skills", parsed["skills"])
+    add_section("Projects", parsed["projects"])
+    add_section("Certifications", parsed["certifications"])
     if parsed["other"].strip():
-        add_section_heading(doc, "Additional Information")
-        add_body_content(doc, parsed["other"])
+        add_section("Additional Information", parsed["other"])
 
-    # Save to memory
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
