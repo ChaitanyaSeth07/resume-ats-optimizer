@@ -1,20 +1,23 @@
 """
 Resume ATS Optimizer
-v0.8 — Clean Professional UI
+v1.5 — Graph pipeline + Clean Professional UI
 """
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from core.evaluation_logger import log_evaluation, get_all_logs
 import streamlit as st
+
 from core.pdf_parser import extract_text_from_pdf, get_pdf_info
 from core.structure_extractor import extract_structure
 from core.feedback_loop import run_feedback_loop
+from core.langgraph_pipeline import run_graph_optimization
 from core.docx_builder import create_ats_docx
 from core.converter import convert_docx_to_pdf
-from core.evaluation_logger import log_evaluation
+from core.evaluation_logger import log_evaluation, get_all_logs
 from core.security import validate_uploaded_file, basic_output_validation, clear_sensitive_session_keys
 from core.report_builder import build_analysis_report
+
 # -------------------- Page Config --------------------
 st.set_page_config(
     page_title="Resume ATS Optimizer",
@@ -26,201 +29,107 @@ st.set_page_config(
 # -------------------- Professional CSS --------------------
 st.markdown("""
 <style>
-    /* Base */
-    .stApp {
-        background-color: #F8FAFC;
-    }
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-    }
+    .stApp { background-color: #F8FAFC; }
+    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
 
-    /* Typography */
     h1, h2, h3, h4 {
         color: #0F172A !important;
         font-weight: 650 !important;
     }
-    p, label, span, div {
-        color: #334155;
-    }
+    p, label, span, div { color: #334155; }
 
-    /* Hero */
     .hero-title {
-        font-size: 2.1rem;
-        font-weight: 700;
-        color: #0F172A;
-        margin-bottom: 0.35rem;
+        font-size: 2.1rem; font-weight: 700; color: #0F172A; margin-bottom: 0.35rem;
     }
     .hero-subtitle {
-        font-size: 1.05rem;
-        color: #334155;
-        margin-bottom: 0.75rem;
+        font-size: 1.05rem; color: #334155; margin-bottom: 0.75rem;
     }
     .hero-desc {
-        font-size: 0.95rem;
-        color: #64748B;
-        max-width: 720px;
-        margin-bottom: 0.9rem;
+        font-size: 0.95rem; color: #64748B; max-width: 720px; margin-bottom: 0.9rem;
     }
     .badge {
-        display: inline-block;
-        background: #EFF6FF;
-        color: #2563EB;
-        border: 1px solid #BFDBFE;
-        font-size: 0.78rem;
-        font-weight: 600;
-        padding: 0.25rem 0.65rem;
-        border-radius: 999px;
-        margin-bottom: 1.25rem;
+        display: inline-block; background: #EFF6FF; color: #2563EB;
+        border: 1px solid #BFDBFE; font-size: 0.78rem; font-weight: 600;
+        padding: 0.25rem 0.65rem; border-radius: 999px; margin-bottom: 1.25rem;
     }
 
-    /* Cards */
-    .card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1.25rem 1.35rem;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-        height: 100%;
-    }
     .card-title {
-        font-size: 0.8rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        color: #0F172A;
-        margin-bottom: 0.35rem;
+        font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em;
+        color: #0F172A; margin-bottom: 0.35rem;
     }
     .card-desc {
-        font-size: 0.9rem;
-        color: #64748B;
-        margin-bottom: 0.9rem;
+        font-size: 0.9rem; color: #64748B; margin-bottom: 0.9rem;
     }
 
-    /* Section headers */
     .section-title {
-        font-size: 1.25rem;
-        font-weight: 650;
-        color: #0F172A;
-        margin-bottom: 0.25rem;
+        font-size: 1.25rem; font-weight: 650; color: #0F172A; margin-bottom: 0.25rem;
     }
     .section-subtitle {
-        font-size: 0.92rem;
-        color: #64748B;
-        margin-bottom: 1.1rem;
+        font-size: 0.92rem; color: #64748B; margin-bottom: 1.1rem;
     }
 
-    /* Score highlight */
     .score-main {
-        font-size: 2.6rem;
-        font-weight: 700;
-        color: #2563EB;
-        line-height: 1.1;
+        font-size: 2.6rem; font-weight: 700; color: #2563EB; line-height: 1.1;
     }
     .score-label {
-        font-size: 0.85rem;
-        color: #64748B;
-        font-weight: 600;
-        letter-spacing: 0.03em;
+        font-size: 0.85rem; color: #64748B; font-weight: 600; letter-spacing: 0.03em;
     }
     .score-rating {
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: #0F172A;
-        margin-top: 0.25rem;
+        font-size: 1.05rem; font-weight: 600; color: #0F172A; margin-top: 0.25rem;
     }
 
-    /* Metric cards */
     .metric-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1rem 1.1rem;
-        text-align: center;
+        background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px;
+        padding: 1rem 1.1rem; text-align: center;
         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
     }
     .metric-value {
-        font-size: 1.45rem;
-        font-weight: 700;
-        color: #0F172A;
+        font-size: 1.45rem; font-weight: 700; color: #0F172A;
     }
     .metric-label {
-        font-size: 0.78rem;
-        color: #64748B;
-        font-weight: 600;
-        margin-top: 0.2rem;
+        font-size: 0.78rem; color: #64748B; font-weight: 600; margin-top: 0.2rem;
     }
 
-    /* Semantic colors (scores / status only) */
     .status-good { color: #16A34A !important; }
     .status-warn { color: #D97706 !important; }
     .status-bad  { color: #DC2626 !important; }
 
-    /* Journey */
     .journey {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 1rem 1.25rem;
-        font-size: 0.92rem;
-        color: #334155;
-        line-height: 1.7;
+        background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px;
+        padding: 1rem 1.25rem; font-size: 0.92rem; color: #334155; line-height: 1.7;
     }
 
-    /* Empty state */
     .empty-state {
-        text-align: center;
-        padding: 2.5rem 1rem;
-        color: #334155;
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
+        text-align: center; padding: 2.5rem 1rem; color: #334155;
+        background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px;
     }
     .empty-title {
-        font-size: 1.25rem;
-        font-weight: 650;
-        color: #0F172A;
-        margin-bottom: 0.5rem;
+        font-size: 1.25rem; font-weight: 650; color: #0F172A; margin-bottom: 0.5rem;
     }
     .empty-flow {
-        margin-top: 1.25rem;
-        font-size: 0.92rem;
-        color: #64748B;
-        line-height: 1.8;
+        margin-top: 1.25rem; font-size: 0.92rem; color: #64748B; line-height: 1.8;
     }
 
-    /* Footer */
     .footer {
-        text-align: center;
-        color: #64748B;
-        font-size: 0.82rem;
-        margin-top: 2.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid #E2E8F0;
+        text-align: center; color: #64748B; font-size: 0.82rem;
+        margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #E2E8F0;
     }
 
-    /* Primary button */
     div.stButton > button[kind="primary"] {
-        background-color: #2563EB;
-        border-color: #2563EB;
-        color: #FFFFFF;
-        font-weight: 600;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
+        background-color: #2563EB; border-color: #2563EB; color: #FFFFFF;
+        font-weight: 600; padding: 0.6rem 1.2rem; border-radius: 8px;
     }
     div.stButton > button[kind="primary"]:hover {
-        background-color: #1D4ED8;
-        border-color: #1D4ED8;
-        color: #FFFFFF;
+        background-color: #1D4ED8; border-color: #1D4ED8; color: #FFFFFF;
     }
 
-    /* Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #FFFFFF;
-        border-right: 1px solid #E2E8F0;
+        background-color: #FFFFFF; border-right: 1px solid #E2E8F0;
     }
 </style>
 """, unsafe_allow_html=True)
-# Initialize variables to avoid NameError
+
+# Initialize variables
 uploaded_file = None
 job_description = ""
 
@@ -252,54 +161,50 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Version**")
-    st.caption("v1.3")
-    st.caption("Clean Professional UI")
+    st.caption("V1.5")
+    st.caption("Graph pipeline + Clean UI")
 
     st.markdown("---")
     st.markdown("### Creator Access")
     creator_password = st.text_input("Enter creator password", type="password")
     show_dashboard = creator_password == "ats2026"
+
     st.markdown("---")
-st.markdown("### Resume Design")
+    st.markdown("### Resume Design")
 
-design_theme = st.selectbox(
-    "Color Theme",
-    ["Blue", "Charcoal", "Teal", "Green", "Burgundy"],
-    index=0
-)
+    design_theme = st.selectbox(
+        "Color Theme",
+        ["Blue", "Charcoal", "Teal", "Green", "Burgundy"],
+        index=0
+    )
+    design_font = st.selectbox(
+        "Typography",
+        ["Calibri", "Arial", "Georgia", "Garamond"],
+        index=0
+    )
+    design_header = st.selectbox(
+        "Header Style",
+        ["Centered", "Left-aligned", "Minimal"],
+        index=0
+    )
+    design_section = st.selectbox(
+        "Section Style",
+        ["Underline", "Caps + line", "Simple bold"],
+        index=0
+    )
+    design_spacing = st.selectbox(
+        "Spacing",
+        ["Compact", "Normal", "Comfortable"],
+        index=1
+    )
+    design_accent = st.selectbox(
+        "Accent Strength",
+        ["Low", "Medium"],
+        index=1
+    )
+    st.caption("Design stays ATS-safe: no icons, tables, or multi-column layouts.")
 
-design_font = st.selectbox(
-    "Typography",
-    ["Calibri", "Arial", "Georgia", "Garamond"],
-    index=0
-)
-
-design_header = st.selectbox(
-    "Header Style",
-    ["Centered", "Left-aligned", "Minimal"],
-    index=0
-)
-
-design_section = st.selectbox(
-    "Section Style",
-    ["Underline", "Caps + line", "Simple bold"],
-    index=0
-)
-
-design_spacing = st.selectbox(
-    "Spacing",
-    ["Compact", "Normal", "Comfortable"],
-    index=1
-)
-
-design_accent = st.selectbox(
-    "Accent Strength",
-    ["Low", "Medium"],
-    index=1
-)
-
-st.caption("Design stays ATS-safe: no icons, tables, or multi-column layouts.")
-    # -------------------- Creator Dashboard --------------------
+# -------------------- Creator Dashboard --------------------
 if show_dashboard:
     st.markdown("## Creator Evaluation Dashboard")
     st.caption("Metrics only. No resume content is stored or shown.")
@@ -311,12 +216,10 @@ if show_dashboard:
     else:
         df = pd.DataFrame(logs)
 
-        # Convert numeric columns safely
         for col in ["overall_score", "keyword_score", "structural_score", "attempts_used", "target_score"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Summary metrics
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Total Evaluations", len(df))
         c2.metric("Avg Overall Score", f"{df['overall_score'].mean():.1f}")
@@ -324,8 +227,6 @@ if show_dashboard:
         c4.metric("Avg Attempts", f"{df['attempts_used'].mean():.1f}")
 
         st.divider()
-
-        # Charts
         col_a, col_b = st.columns(2)
 
         with col_a:
@@ -359,17 +260,13 @@ if show_dashboard:
         st.pyplot(fig3)
 
         st.divider()
-
-        # Raw table
         st.markdown("**Raw Metrics Log**")
         st.dataframe(df, use_container_width=True)
 
         st.divider()
         st.markdown("### Download Analysis")
 
-        # Presentable full report
         report_buffer = build_analysis_report(logs)
-
         d1, d2 = st.columns(2)
 
         with d1:
@@ -395,10 +292,12 @@ if show_dashboard:
     st.info("Creator mode is active. Regular users do not see this dashboard.")
     st.stop()
 
-
 # -------------------- Hero --------------------
 st.markdown('<div class="hero-title">Resume ATS Optimizer</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-subtitle">AI-powered resume optimization for modern recruitment.</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="hero-subtitle">AI-powered resume optimization for modern recruitment.</div>',
+    unsafe_allow_html=True
+)
 st.markdown(
     '<div class="hero-desc">Upload your resume and provide a job description. '
     'The system analyzes, improves, scores, and generates an ATS-friendly version.</div>',
@@ -410,7 +309,10 @@ st.divider()
 
 # -------------------- Input Section --------------------
 st.markdown('<div class="section-title">Optimize Your Resume</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Provide your resume and the job description to begin.</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-subtitle">Provide your resume and the job description to begin.</div>',
+    unsafe_allow_html=True
+)
 
 col1, col2 = st.columns(2)
 
@@ -429,7 +331,10 @@ with col1:
 
 with col2:
     st.markdown('<div class="card-title">JOB DESCRIPTION</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card-desc">Paste the job description for the position you\'re targeting.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="card-desc">Paste the job description for the position you\'re targeting.</div>',
+        unsafe_allow_html=True
+    )
     job_description = st.text_area(
         "Job Description",
         height=160,
@@ -443,7 +348,7 @@ st.write("")
 # -------------------- CTA --------------------
 optimize_clicked = st.button("🚀 Optimize My Resume", type="primary", use_container_width=True)
 
-# -------------------- Empty State (only when nothing is entered yet) --------------------
+# -------------------- Empty State --------------------
 if (not optimize_clicked) and (uploaded_file is None) and (not job_description.strip()):
     st.markdown("""
     <div class="empty-state">
@@ -456,7 +361,7 @@ if (not optimize_clicked) and (uploaded_file is None) and (not job_description.s
             ↓<br>
             ATS Scoring<br>
             ↓<br>
-            Feedback Loop<br>
+            Error Diagnosis + Targeted Fix<br>
             ↓<br>
             Optimized Resume
         </div>
@@ -465,7 +370,6 @@ if (not optimize_clicked) and (uploaded_file is None) and (not job_description.s
 
 # -------------------- Processing & Results --------------------
 if optimize_clicked:
-    # Validation
     is_valid, error_msg = validate_uploaded_file(uploaded_file)
     if not is_valid:
         st.error(error_msg)
@@ -478,6 +382,7 @@ if optimize_clicked:
     with st.status("Optimization in progress", expanded=True) as status:
         st.write("✓ Extracting resume text")
         resume_text = extract_text_from_pdf(uploaded_file)
+
         if resume_text is None:
             st.error(
                 "We couldn't complete the optimization.\n\n"
@@ -491,15 +396,36 @@ if optimize_clicked:
         structured = extract_structure(resume_text)
 
         st.write("✓ Running AI optimization")
-        st.write("✓ Calculating ATS score")
-        st.write("⟳ Improving resume")
+        st.write("✓ Diagnosing errors and applying targeted fixes")
 
-        final_resume, score_report, attempts = run_feedback_loop(
-            structured_resume=structured,
-            job_description=job_description,
-            max_attempts=max_attempts,
-            target_score=float(target_score)
-        )
+        design_options = {
+            "theme": design_theme,
+            "font": design_font,
+            "header_style": design_header,
+            "section_style": design_section,
+            "spacing": design_spacing,
+            "accent_strength": design_accent,
+        }
+
+        try:
+            final_resume, score_report, attempts, graph_state = run_graph_optimization(
+                structured_resume=structured,
+                job_description=job_description,
+                original_text=resume_text,
+                target_score=float(target_score),
+                max_attempts=int(max_attempts),
+                design_options=design_options,
+                job_family="general",
+            )
+        except Exception as e:
+            print(f"Graph pipeline failed, falling back: {e}")
+            final_resume, score_report, attempts = run_feedback_loop(
+                structured_resume=structured,
+                job_description=job_description,
+                max_attempts=max_attempts,
+                target_score=float(target_score),
+            )
+            graph_state = {}
 
         if final_resume is None:
             st.error(
@@ -518,14 +444,6 @@ if optimize_clicked:
 
         st.write(f"AI improvement attempt {attempts} of {max_attempts}")
         st.write("○ Generating final documents")
-        design_options = {
-    "theme": design_theme,
-    "font": design_font,
-    "header_style": design_header,
-    "section_style": design_section,
-    "spacing": design_spacing,
-    "accent_strength": design_accent,
-}
 
         docx_buffer = create_ats_docx(final_resume, design=design_options)
 
@@ -533,7 +451,6 @@ if optimize_clicked:
         if output_format in ["PDF", "Both"]:
             pdf_buffer = convert_docx_to_pdf(docx_buffer)
 
-        # Log metrics only
         log_evaluation(
             score_report=score_report,
             attempts_used=attempts,
@@ -546,9 +463,11 @@ if optimize_clicked:
 
     # -------------------- Results --------------------
     st.markdown('<div class="section-title">Optimization Results</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Here\'s how your optimized resume performed.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Here\'s how your optimized resume performed.</div>',
+        unsafe_allow_html=True
+    )
 
-    # Main score
     score = score_report.get("overall_score", 0)
     rating = score_report.get("rating", "—")
 
@@ -589,7 +508,6 @@ if optimize_clicked:
 
     st.write("")
 
-    # Optimization Journey
     st.markdown("#### Optimization Journey")
     st.markdown(f"""
     <div class="journey">
@@ -597,7 +515,9 @@ if optimize_clicked:
         ↓<br>
         Score evaluation<br>
         ↓<br>
-        AI improvement<br>
+        Error diagnosis<br>
+        ↓<br>
+        Targeted AI fix<br>
         ↓<br>
         Final evaluation<br><br>
         <strong>Attempts used:</strong> {attempts} / {max_attempts}<br>
@@ -606,7 +526,16 @@ if optimize_clicked:
     </div>
     """, unsafe_allow_html=True)
 
-    # Missing keywords
+    if graph_state and graph_state.get("fix_history"):
+        with st.expander("Repair path (graph pipeline)"):
+            for item in graph_state["fix_history"]:
+                st.write(
+                    f"Attempt {item.get('attempt')}: "
+                    f"{item.get('error_code')} → "
+                    f"{'improved' if item.get('improved') else 'no gain'} "
+                    f"({item.get('score_before')} → {item.get('score_after')})"
+                )
+
     missing = score_report.get("missing_keywords") or []
     with st.expander("Keyword Analysis"):
         if missing:
@@ -618,37 +547,48 @@ if optimize_clicked:
 
     st.divider()
 
-    # Original vs Optimized
     st.markdown("#### Original vs Optimized")
     left, right = st.columns(2)
 
     with left:
         st.markdown("**ORIGINAL RESUME**")
         st.caption("Extracted from uploaded PDF")
-        st.text_area("original", value=resume_text, height=420, disabled=True, label_visibility="collapsed")
+        st.text_area(
+            "original",
+            value=resume_text,
+            height=420,
+            disabled=True,
+            label_visibility="collapsed"
+        )
 
     with right:
         st.markdown("**OPTIMIZED RESUME**")
         st.caption("AI-optimized version")
-        st.text_area("optimized", value=final_resume, height=420, label_visibility="collapsed")
+        st.text_area(
+            "optimized",
+            value=final_resume,
+            height=420,
+            label_visibility="collapsed"
+        )
 
     st.divider()
 
-    # What was improved
     st.markdown("#### What Was Improved")
     st.markdown("""
 - ✓ Resume structure analyzed  
 - ✓ Job-description keywords evaluated  
 - ✓ ATS compatibility checked  
-- ✓ Resume optimized using iterative AI feedback  
+- ✓ Specific errors diagnosed and fixed iteratively  
 - ✓ Final resume formatted for ATS-friendly output  
 """)
 
     st.divider()
 
-    # Downloads
     st.markdown('<div class="section-title">Download Your Optimized Resume</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Choose the format you want to use.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Choose the format you want to use.</div>',
+        unsafe_allow_html=True
+    )
 
     d1, d2, d3 = st.columns(3)
 
@@ -689,14 +629,13 @@ if optimize_clicked:
             use_container_width=True
         )
 
-    # Clear sensitive session data
     clear_sensitive_session_keys(st.session_state)
 
 # -------------------- Footer --------------------
 st.markdown("""
 <div class="footer">
     Resume ATS Optimizer<br>
-    AI-powered resume optimization using LLM + ATS feedback loop<br>
-    v1.3
+    AI-powered resume optimization using LLM + error-aware feedback loop<br>
+    V1.5
 </div>
 """, unsafe_allow_html=True)

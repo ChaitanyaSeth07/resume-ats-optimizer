@@ -30,3 +30,4 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+error_memory.json
