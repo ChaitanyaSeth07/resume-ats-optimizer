@@ -31,3 +31,5 @@ Thumbs.db
 .vscode/
 .idea/
 error_memory.json
+error_memory.json
+error_memory_chroma/

@@ -17,6 +17,7 @@ from core.converter import convert_docx_to_pdf
 from core.evaluation_logger import log_evaluation, get_all_logs
 from core.security import validate_uploaded_file, basic_output_validation, clear_sensitive_session_keys
 from core.report_builder import build_analysis_report
+from core.memory_graph_viz import build_error_mind_figure
 
 # -------------------- Page Config --------------------
 st.set_page_config(
@@ -203,7 +204,7 @@ with st.sidebar:
         index=1
     )
     st.caption("Design stays ATS-safe: no icons, tables, or multi-column layouts.")
-
+    
 # -------------------- Creator Dashboard --------------------
 if show_dashboard:
     st.markdown("## Creator Evaluation Dashboard")
@@ -227,6 +228,7 @@ if show_dashboard:
         c4.metric("Avg Attempts", f"{df['attempts_used'].mean():.1f}")
 
         st.divider()
+
         col_a, col_b = st.columns(2)
 
         with col_a:
@@ -262,6 +264,39 @@ if show_dashboard:
         st.divider()
         st.markdown("**Raw Metrics Log**")
         st.dataframe(df, use_container_width=True)
+
+        st.divider()
+        st.markdown("### 3-D Error Memory Brain")
+        st.caption(
+            "Hybrid view of anonymized error memory: K-means communities, "
+            "Mexican-hat relational field, tanh-normalized links, and regression-based gain prediction. "
+            "No resume content is shown."
+        )
+
+        fig_mind, mind_summary = build_error_mind_figure()
+        if fig_mind is None:
+            st.warning("Could not build the 3-D Error Brain. Install plotly + scikit-learn.")
+        else:
+            st.plotly_chart(fig_mind, use_container_width=True)
+
+            if mind_summary:
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Nodes", mind_summary.get("nodes", 0))
+                m2.metric("Relations", mind_summary.get("edges", 0))
+                m3.metric("Communities", mind_summary.get("clusters", 0))
+                m4.metric(
+                    "Gain model",
+                    "Ready" if mind_summary.get("regression_ready") else "Need more data"
+                )
+
+            st.markdown("""
+**How to read this**
+- **Dot color** = K-means error community
+- **Dot size** = success / frequency
+- **Blue links** = positive Mexican-hat relations
+- **Red links** = inhibitory / distant relations
+- **Hover** = success rate, avg gain, predicted gain
+""")
 
         st.divider()
         st.markdown("### Download Analysis")
