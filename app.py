@@ -162,7 +162,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Version**")
-    st.caption("V1.5")
+    st.caption("V2.2")
     st.caption("Graph pipeline + Clean UI")
 
     st.markdown("---")
@@ -671,6 +671,6 @@ st.markdown("""
 <div class="footer">
     Resume ATS Optimizer<br>
     AI-powered resume optimization using LLM + error-aware feedback loop<br>
-    V1.5
+    V2.2
 </div>
 """, unsafe_allow_html=True)
