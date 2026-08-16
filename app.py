@@ -18,6 +18,7 @@ from core.evaluation_logger import log_evaluation, get_all_logs
 from core.security import validate_uploaded_file, basic_output_validation, clear_sensitive_session_keys
 from core.report_builder import build_analysis_report
 from core.memory_graph_viz import build_error_mind_figure
+from core.comprehensive_report import build_comprehensive_html_report
 
 # -------------------- Page Config --------------------
 st.set_page_config(
@@ -298,10 +299,20 @@ if show_dashboard:
 - **Hover** = success rate, avg gain, predicted gain
 """)
 
-        st.divider()
+            st.divider()
         st.markdown("### Download Analysis")
 
         report_buffer = build_analysis_report(logs)
+        comprehensive_html = build_comprehensive_html_report()
+
+        st.download_button(
+            label="Download Comprehensive Report (HTML)",
+            data=comprehensive_html,
+            file_name="resume_ats_comprehensive_report.html",
+            mime="text/html",
+            use_container_width=True
+        )
+
         d1, d2 = st.columns(2)
 
         with d1:
